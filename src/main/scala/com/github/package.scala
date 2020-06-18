@@ -3,11 +3,11 @@ package com
 package object github {
 
   trait MessageQueue {
-    def nextMessage(): Either[Message1, Message2]
+    def nextMessage(): Either[Message1, Either[Message2, ControlMessage]]
   }
 
   trait BusinessLogic {
-    def react(message: Either[Message1, Message2]): Int
+    def react(message: Either[Message1, Either[Message2, ControlMessage]]): Int
   }
 
   trait Sink {
@@ -15,13 +15,14 @@ package object github {
   }
 
   object MessageQueue {
-    def apply(m: () => Either[Message1, Message2]): MessageQueue = () => m()
+    def apply(m: () => Either[Message1, Either[Message2, ControlMessage]]): MessageQueue = () => m()
   }
 
   object BusinessLogic {
     def apply(): BusinessLogic = {
       case Left(v)  => v.value.length
-      case Right(v) => v.value
+      case Right(Left(v)) => v.value
+      case Right(Right(_)) => -1
     }
   }
 
