@@ -1,15 +1,19 @@
 package com.github
 
-import cats.{FlatMap, Functor, Id}
+import cats.data.EitherT
+import cats.{FlatMap, Functor, Id, Monad}
 import cats.syntax.all._
+import io.circe.syntax._
+import io.circe.parser
 
 object Main {
 
-  def program[F[_]: FlatMap: Functor](
-      mq: MessageQueue[F],
-      logic: BusinessLogic[F],
-      sink: Sink[F]
-  ): F[Unit] =
+
+  def program[F[_]: Monad](
+      mq: MessageQueue[EitherT[F, Throwable, *]],
+      logic: BusinessLogic[EitherT[F, Throwable, *]],
+      sink: Sink[EitherT[F, Throwable, *]]
+  ): EitherT[F, Throwable, Unit] =
     for {
       message <- mq.nextMessage()
       result  <- logic.react(message)
@@ -17,11 +21,23 @@ object Main {
     } yield ()
 
   def main(args: Array[String]): Unit = {
-    val mq    = MessageQueue[Id](() => Right(Left(Message2(3))))
-    val logic = BusinessLogic[Id]()
-    val sink  = Sink[Id]()
+    val message =
+      """
+        |{
+        |  "@type": "ControlMessage",
+        |  "value": "hello"
+        |}
+        |""".stripMargin
+
+    val mq    = MessageQueue[Id](() => parser.parse(message))
+    val logic = BusinessLogic[EitherT[Id, Throwable, *]]()
+    val sink  = Sink[EitherT[Id, Throwable, *]]()
 
     program(mq, logic, sink)
+
+
+
+    println(parser.parse(message).flatMap(_.as[Message1]))
 
   }
 

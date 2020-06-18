@@ -1,7 +1,9 @@
 package com
 
 import cats.Applicative
+import cats.data.EitherT
 import cats.syntax.applicative._
+import io.circe.Json
 
 package object github {
 
@@ -22,8 +24,17 @@ package object github {
   }
 
   object MessageQueue {
-    def apply[F[_]: Applicative](m: () => Messages): MessageQueue[F] =
-      () => m().pure[F]
+    def apply[F[_]: Applicative](
+        m: () => Either[Throwable, Json]
+    ): MessageQueue[EitherT[F, Throwable, *]] =
+      () => {
+        EitherT.fromEither[F](
+          for {
+            json    <- m()
+            message <- json.as[Messages]
+          } yield message
+        )
+      }
   }
 
   object BusinessLogic {
