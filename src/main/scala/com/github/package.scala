@@ -14,12 +14,14 @@ package object github {
 
   type Messages = Message1 :+: Message2 :+: ControlMessage
 
+  type MetadataMessages = MessageWithMetadata[Messages]
+
   trait MessageQueue[F[_]] {
-    def nextMessage(): F[Messages]
+    def nextMessage(): F[MessageWithMetadata[Messages]]
   }
 
   trait BusinessLogic[F[_]] {
-    def react(message: Messages): F[Int]
+    def react(message: MetadataMessages): F[Int]
   }
 
   trait Sink[F[_]] {
@@ -28,12 +30,12 @@ package object github {
 
   object MessageQueue {
 
-    implicit val messagesDecoder: Decoder[Messages] =
+    implicit val messagesDecoder: Decoder[MetadataMessages] =
       NonEmptyList
         .of(
-          Decoder[Message1].inj[Messages],
-          Decoder[Message2].inj[Messages],
-          Decoder[ControlMessage].inj[Messages]
+          Decoder[MessageWithMetadata[Message1]].inj[MetadataMessages],
+          Decoder[MessageWithMetadata[Message2]].inj[MetadataMessages],
+          Decoder[MessageWithMetadata[ControlMessage]].inj[MetadataMessages]
         )
         .reduceK
 
@@ -44,7 +46,7 @@ package object github {
         EitherT.fromEither[F](
           for {
             json    <- m()
-            message <- json.as[Messages]
+            message <- json.as[MetadataMessages]
           } yield message
         )
       }
@@ -55,24 +57,24 @@ package object github {
     class BusinessLogicImpl[F[_]](implicit F: Monad[F])
         extends BusinessLogic[F] {
 
-      override def react(message: Messages): F[Int] =
+      override def react(message: MetadataMessages): F[Int] =
         NonEmptyList
           .of(
-            processMessage1.prj[Messages],
-            processMessage2.prj[Messages],
-            processControl.prj[Messages]
+            processMessage1.prj[MetadataMessages],
+            processMessage2.prj[MetadataMessages],
+            processControl.prj[MetadataMessages]
           )
           .reduceK
           .run(message)
           .getOrElseF(F.pure(Int.MinValue))
 
-      private val processMessage1: Kleisli[F, Message1, Int] =
-        Kleisli { _.value.length.pure[F] }
+      private val processMessage1: Kleisli[F, MessageWithMetadata[Message1], Int] =
+        Kleisli { _.message.value.length.pure[F] }
 
-      private val processMessage2: Kleisli[F, Message2, Int] =
-        Kleisli { _.value.pure[F] }
+      private val processMessage2: Kleisli[F, MessageWithMetadata[Message2], Int] =
+        Kleisli { _.message.value.pure[F] }
 
-      private val processControl: Kleisli[F, ControlMessage, Int] =
+      private val processControl: Kleisli[F, MessageWithMetadata[ControlMessage], Int] =
         Kleisli { _ => (-1).pure[F] }
 
     }
