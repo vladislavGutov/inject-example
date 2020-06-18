@@ -3,6 +3,8 @@ package com.github
 import cats.data.{Kleisli, OptionT}
 import cats.{Applicative, Functor, Inject, Monad, ~>}
 import cats.syntax.functor._
+import cats.instances.option._
+import monocle.{PIso, PLens}
 
 package object inject {
 
@@ -34,4 +36,14 @@ package object inject {
     }
   }
 
+  implicit def injectLensDerivation[A, B, M[_]](implicit
+      Inj: Inject[A, B],
+      This: PLens[M[A], M[B], A, B],
+      That: PLens[M[B], M[A], B, A]
+  ): Inject[M[A], M[B]] =
+    new Inject[M[A], M[B]] {
+      override def inj: M[A] => M[B] = This.modify(Inj.inj)
+
+      override def prj: M[B] => Option[M[A]] = That.modifyF(Inj.prj)
+    }
 }

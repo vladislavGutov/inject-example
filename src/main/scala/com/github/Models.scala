@@ -2,6 +2,7 @@ package com.github
 
 import io.circe.generic.semiauto._
 import io.circe.{Codec, Decoder}
+import monocle.{PIso, PLens}
 
 case class Message1(value: String)
 case class Message2(value: Int)
@@ -27,6 +28,14 @@ object ControlMessage extends CirceConfig {
     validate(deriveDecoder[ControlMessage], "ControlMessage")
       .map(MessageWithMetadata(_, "metadata"))
 
+}
+
+object MessageWithMetadata {
+  implicit def plens[A, B]
+      : PLens[MessageWithMetadata[A], MessageWithMetadata[B], A, B] =
+    PLens[MessageWithMetadata[A], MessageWithMetadata[B], A, B](_.message)(b =>
+      _.copy(message = b)
+    )
 }
 
 trait CirceConfig {
