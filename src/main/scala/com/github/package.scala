@@ -3,13 +3,19 @@ package com
 import cats.Applicative
 import cats.data.EitherT
 import cats.syntax.applicative._
-import io.circe.Json
+import cats.syntax.semigroupk._
+import io.circe.{Decoder, Json}
 
 package object github {
 
   type :+:[A, B] = Either[A, B]
 
   type Messages = Message1 :+: Message2 :+: ControlMessage
+
+  implicit val messagesDecoder: Decoder[Messages] =
+    Decoder[Message1].map(Left(_): Messages) <+>
+      Decoder[Message2].map(v => Right(Left(v)): Messages) <+>
+      Decoder[ControlMessage].map(v => Right(Right(v)): Messages)
 
   trait MessageQueue[F[_]] {
     def nextMessage(): F[Messages]

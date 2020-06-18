@@ -25,7 +25,7 @@ object Main {
       """
         |{
         |  "@type": "ControlMessage",
-        |  "value": "hello"
+        |  "command": "hello"
         |}
         |""".stripMargin
 
@@ -37,7 +37,6 @@ object Main {
 
 
 
-    println(parser.parse(message).flatMap(_.as[Message1]))
 
   }
 
