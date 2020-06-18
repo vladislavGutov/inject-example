@@ -1,34 +1,43 @@
 package com
 
+import cats.Applicative
+import cats.syntax.applicative._
+
 package object github {
 
-  trait MessageQueue {
-    def nextMessage(): Either[Message1, Either[Message2, ControlMessage]]
+  type :+:[A, B] = Either[A, B]
+
+  type Messages = Message1 :+: Message2 :+: ControlMessage
+
+  trait MessageQueue[F[_]] {
+    def nextMessage(): F[Messages]
   }
 
-  trait BusinessLogic {
-    def react(message: Either[Message1, Either[Message2, ControlMessage]]): Int
+  trait BusinessLogic[F[_]] {
+    def react(message: Messages): F[Int]
   }
 
-  trait Sink {
-    def write(value: Int): Unit
+  trait Sink[F[_]] {
+    def write(value: Int): F[Unit]
   }
 
   object MessageQueue {
-    def apply(m: () => Either[Message1, Either[Message2, ControlMessage]]): MessageQueue = () => m()
+    def apply[F[_]: Applicative](m: () => Messages): MessageQueue[F] =
+      () => m().pure[F]
   }
 
   object BusinessLogic {
-    def apply(): BusinessLogic = {
-      case Left(v)  => v.value.length
-      case Right(Left(v)) => v.value
-      case Right(Right(_)) => -1
+    def apply[F[_]: Applicative](): BusinessLogic[F] = {
+      case Left(v)         => v.value.length.pure[F]
+      case Right(Left(v))  => v.value.pure[F]
+      case Right(Right(_)) => (-1).pure[F]
     }
   }
 
   object Sink {
-    def apply(): Sink = v => println(s"Value is $v")
+    //unsafe
+    def apply[F[_]: Applicative](): Sink[F] =
+      v => println(s"Value is $v").pure[F]
   }
-
 
 }
