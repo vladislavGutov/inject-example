@@ -1,9 +1,11 @@
 package com
 
 import cats.Applicative
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.syntax.applicative._
 import cats.syntax.semigroupk._
+import cats.syntax.reducible._
+import com.github.inject._
 import io.circe.{Decoder, Json}
 
 package object github {
@@ -13,9 +15,12 @@ package object github {
   type Messages = Message1 :+: Message2 :+: ControlMessage
 
   implicit val messagesDecoder: Decoder[Messages] =
-    Decoder[Message1].map(Left(_): Messages) <+>
-      Decoder[Message2].map(v => Right(Left(v)): Messages) <+>
-      Decoder[ControlMessage].map(v => Right(Right(v)): Messages)
+    NonEmptyList.of(
+      Decoder[Message1].inj[Messages],
+      Decoder[Message2].inj[Messages],
+      Decoder[ControlMessage].inj[Messages]
+    ).reduceK
+
 
   trait MessageQueue[F[_]] {
     def nextMessage(): F[Messages]
