@@ -15,12 +15,13 @@ package object github {
   type Messages = Message1 :+: Message2 :+: ControlMessage
 
   implicit val messagesDecoder: Decoder[Messages] =
-    NonEmptyList.of(
-      Decoder[Message1].inj[Messages],
-      Decoder[Message2].inj[Messages],
-      Decoder[ControlMessage].inj[Messages]
-    ).reduceK
-
+    NonEmptyList
+      .of(
+        Decoder[Message1].inj[Messages],
+        Decoder[Message2].inj[Messages],
+        Decoder[ControlMessage].inj[Messages]
+      )
+      .reduceK
 
   trait MessageQueue[F[_]] {
     def nextMessage(): F[Messages]
@@ -49,11 +50,29 @@ package object github {
   }
 
   object BusinessLogic {
-    def apply[F[_]: Applicative](): BusinessLogic[F] = {
-      case Left(v)         => v.value.length.pure[F]
-      case Right(Left(v))  => v.value.pure[F]
-      case Right(Right(_)) => (-1).pure[F]
+
+    class BusinessLogicImpl[F[_]](implicit F: Applicative[F])
+        extends BusinessLogic[F] {
+
+      override def react(message: Messages): F[Int] =
+        message match {
+          case Left(v)         => processMessage1(v)
+          case Right(Left(v))  => processMessage2(v)
+          case Right(Right(v)) => processControl(v)
+        }
+
+      private def processMessage1(message1: Message1): F[Int] =
+        message1.value.length.pure[F]
+
+      private def processMessage2(message2: Message2): F[Int] =
+        message2.value.pure[F]
+
+      private def processControl(control: ControlMessage): F[Int] =
+        (-1).pure[F]
+
     }
+
+    def apply[F[_]: Applicative](): BusinessLogic[F] = new BusinessLogicImpl[F]
   }
 
   object Sink {
