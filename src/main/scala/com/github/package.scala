@@ -14,15 +14,6 @@ package object github {
 
   type Messages = Message1 :+: Message2 :+: ControlMessage
 
-  implicit val messagesDecoder: Decoder[Messages] =
-    NonEmptyList
-      .of(
-        Decoder[Message1].inj[Messages],
-        Decoder[Message2].inj[Messages],
-        Decoder[ControlMessage].inj[Messages]
-      )
-      .reduceK
-
   trait MessageQueue[F[_]] {
     def nextMessage(): F[Messages]
   }
@@ -36,6 +27,16 @@ package object github {
   }
 
   object MessageQueue {
+
+    implicit val messagesDecoder: Decoder[Messages] =
+      NonEmptyList
+        .of(
+          Decoder[Message1].inj[Messages],
+          Decoder[Message2].inj[Messages],
+          Decoder[ControlMessage].inj[Messages]
+        )
+        .reduceK
+
     def apply[F[_]: Applicative](
         m: () => Either[Throwable, Json]
     ): MessageQueue[EitherT[F, Throwable, *]] =
@@ -55,12 +56,15 @@ package object github {
         extends BusinessLogic[F] {
 
       override def react(message: Messages): F[Int] =
-        NonEmptyList.of(
-          processMessage1.prj[Messages],
-          processMessage2.prj[Messages],
-          processControl.prj[Messages]
-        ).reduceK.run(message).getOrElseF(F.pure(Int.MinValue))
-
+        NonEmptyList
+          .of(
+            processMessage1.prj[Messages],
+            processMessage2.prj[Messages],
+            processControl.prj[Messages]
+          )
+          .reduceK
+          .run(message)
+          .getOrElseF(F.pure(Int.MinValue))
 
       private val processMessage1: Kleisli[F, Message1, Int] =
         Kleisli { _.value.length.pure[F] }
