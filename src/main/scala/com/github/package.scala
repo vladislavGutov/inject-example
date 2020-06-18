@@ -1,7 +1,7 @@
 package com
 
-import cats.Applicative
-import cats.data.{EitherT, NonEmptyList}
+import cats.{Applicative, Monad}
+import cats.data.{EitherT, Kleisli, NonEmptyList}
 import cats.syntax.applicative._
 import cats.syntax.semigroupk._
 import cats.syntax.reducible._
@@ -51,28 +51,29 @@ package object github {
 
   object BusinessLogic {
 
-    class BusinessLogicImpl[F[_]](implicit F: Applicative[F])
+    class BusinessLogicImpl[F[_]](implicit F: Monad[F])
         extends BusinessLogic[F] {
 
       override def react(message: Messages): F[Int] =
-        message match {
-          case Left(v)         => processMessage1(v)
-          case Right(Left(v))  => processMessage2(v)
-          case Right(Right(v)) => processControl(v)
-        }
+        NonEmptyList.of(
+          processMessage1.prj[Messages],
+          processMessage2.prj[Messages],
+          processControl.prj[Messages]
+        ).reduceK.run(message).getOrElseF(F.pure(Int.MinValue))
 
-      private def processMessage1(message1: Message1): F[Int] =
-        message1.value.length.pure[F]
 
-      private def processMessage2(message2: Message2): F[Int] =
-        message2.value.pure[F]
+      private val processMessage1: Kleisli[F, Message1, Int] =
+        Kleisli { _.value.length.pure[F] }
 
-      private def processControl(control: ControlMessage): F[Int] =
-        (-1).pure[F]
+      private val processMessage2: Kleisli[F, Message2, Int] =
+        Kleisli { _.value.pure[F] }
+
+      private val processControl: Kleisli[F, ControlMessage, Int] =
+        Kleisli { _ => (-1).pure[F] }
 
     }
 
-    def apply[F[_]: Applicative](): BusinessLogic[F] = new BusinessLogicImpl[F]
+    def apply[F[_]: Monad](): BusinessLogic[F] = new BusinessLogicImpl[F]
   }
 
   object Sink {

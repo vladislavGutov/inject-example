@@ -24,8 +24,8 @@ object Main {
     val message =
       """
         |{
-        |  "@type": "ControlMessage",
-        |  "command": "hello"
+        |  "@type": "Message1",
+        |  "value": "hello"
         |}
         |""".stripMargin
 
